@@ -5,32 +5,19 @@
 * @copyright: Copyright (c) 2012 Dan Grossman. All rights reserved.
 * @license: Licensed under Apache License v2.0. See http://www.apache.org/licenses/LICENSE-2.0
 * @website: http://www.improvely.com/
+*
 */
 !function ($) {
 
     var DateRangePicker = function (element, options, cb) {
-        var hasOptions = typeof options == 'object'
-        var localeObject;
 
         //state
         this.startDate = Date.today();
         this.endDate = Date.today();
-        this.changed = false;
         this.ranges = {};
         this.opens = 'right';
         this.cb = function () { };
         this.format = 'MM/dd/yyyy';
-        this.locale = {
-            applyLabel:"Apply",
-            fromLabel:"From",
-            toLabel:"To",
-            customRangeLabel:"Custom Range",
-            daysOfWeek:['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr','Sa'],
-            monthNames:['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-            firstDay:0
-        };
-
-        localeObject = this.locale;
 
         this.leftCalendar = {
             month: Date.today().set({ day: 1, month: this.startDate.getMonth(), year: this.startDate.getFullYear() }),
@@ -58,37 +45,10 @@
             this.element.on('click', $.proxy(this.show, this));
         }
 
-        if (hasOptions) {
-            if(typeof options.locale == 'object') {
-                $.each(localeObject, function (property, value) {
-                    localeObject[property] = options.locale[property] || value;
-                });
-            }
-        }
-
-        var DRPTemplate = '<div class="daterangepicker dropdown-menu">' +
-                '<div class="calendar left"></div>' +
-                '<div class="calendar right"></div>' +
-                '<div class="ranges">' +
-                  '<div class="range_inputs">' +
-                    '<div style="float: left">' +
-                      '<label for="daterangepicker_start">' + this.locale.fromLabel + '</label>' +
-                      '<input class="input-mini" type="text" name="daterangepicker_start" value="" disabled="disabled" />' +
-                    '</div>' +
-                    '<div style="float: left; padding-left: 11px">' +
-                      '<label for="daterangepicker_end">' + this.locale.toLabel + '</label>' +
-                      '<input class="input-mini" type="text" name="daterangepicker_end" value="" disabled="disabled" />' +
-                    '</div>' +
-                    '<button class="btn btn-small btn-success" disabled="disabled">' + this.locale.applyLabel + '</button>' +
-                  '</div>' +
-                '</div>' +
-              '</div>';
-
         //the date range picker
         this.container = $(DRPTemplate).appendTo('body');
 
-
-        if (hasOptions) {
+        if (typeof options == 'object') {
             if (typeof options.ranges == 'object') {
                 for (var range in options.ranges) {
 
@@ -100,14 +60,14 @@
                     if (typeof end == 'string')
                         end = Date.parse(end);
 
-                    this.ranges[range] = [start, end];
+                    this.ranges[range] = [start, end, options.ranges[range][2]]; // CUSTOM
                 }
 
                 var list = '<ul>';
                 for (var range in this.ranges) {
                     list += '<li>' + range + '</li>';
                 }
-                list += '<li>' + this.locale.customRangeLabel + '</li>';
+                list += '<li>Custom Range</li>';
                 list += '</ul>';
                 this.container.find('.ranges').prepend(list);
             }
@@ -120,18 +80,6 @@
 
             if (typeof options.endDate == 'string')
                 this.endDate = Date.parse(options.endDate, this.format);
-
-            // update day names order to firstDay
-            if (typeof options.locale == 'object') {
-                if (typeof options.locale.firstDay == 'number') {
-                    this.locale.firstDay = options.locale.firstDay;
-                    var iterator = options.locale.firstDay;
-                    while (iterator > 0) {
-                        this.locale.daysOfWeek.push(this.locale.daysOfWeek.shift());
-                        iterator--;
-                    }
-                }
-            }
 
             if (typeof options.opens == 'string')
                 this.opens = options.opens;
@@ -171,7 +119,7 @@
 
         this.updateView();
         this.updateCalendars();
-
+        this.notify();
     };
 
     DateRangePicker.prototype = {
@@ -211,7 +159,7 @@
             this.endDate = end;
 
             this.updateView();
-            this.cb(this.startDate, this.endDate);
+            this.cb(this.startDate, this.endDate, this.step, this.label); // CUSTOM
             this.updateCalendars();
         },
 
@@ -221,7 +169,7 @@
             if (this.element.is('input')) {
                 this.element.val(this.startDate.toString(this.format) + ' - ' + this.endDate.toString(this.format));
             }
-            this.cb(this.startDate, this.endDate);
+            this.cb(this.startDate, this.endDate, this.step, this.label); // CUSTOM
         },
 
         move: function () {
@@ -249,23 +197,19 @@
                 e.preventDefault();
             }
 
-            this.changed = false;
-
             $(document).on('mousedown', $.proxy(this.hide, this));
         },
 
         hide: function (e) {
             this.container.hide();
             $(document).off('mousedown', this.hide);
-
-            if (this.changed)
-                this.notify();
         },
 
         enterRange: function (e) {
             var label = e.target.innerHTML;
-            if (label == this.locale.customRangeLabel) {
+            if (label == "Custom Range") {
                 this.updateView();
+                this.label = "Custom Range"; // CUSTOM
             } else {
                 var dates = this.ranges[label];
                 this.container.find('input[name=daterangepicker_start]').val(dates[0].toString(this.format));
@@ -275,20 +219,21 @@
 
         clickRange: function (e) {
             var label = e.target.innerHTML;
-            if (label == this.locale.customRangeLabel) {
+            if (label == "Custom Range") {
                 this.container.find('.calendar').show();
             } else {
                 var dates = this.ranges[label];
 
                 this.startDate = dates[0];
                 this.endDate = dates[1];
+                this.step = dates[2]; // CUSTOM
+                this.label = label; // CUSTOM
 
                 this.leftCalendar.month.set({ month: this.startDate.getMonth(), year: this.startDate.getFullYear() });
                 this.rightCalendar.month.set({ month: this.endDate.getMonth(), year: this.endDate.getFullYear() });
                 this.updateCalendars();
 
-                this.changed = true;
-
+                this.notify();
                 this.container.find('.calendar').hide();
                 this.hide();
             }
@@ -347,14 +292,15 @@
 
             if (startDate.equals(endDate) || startDate.isBefore(endDate)) {
                 $(e.target).addClass('active');
-                if (!startDate.equals(this.startDate) || !endDate.equals(this.endDate))
-                    this.changed = true;
                 this.startDate = startDate;
                 this.endDate = endDate;
             }
+
+            // this.notify();  // CUSTOM
         },
 
         clickApply: function (e) {
+            this.notify();
             this.hide();
         },
 
@@ -385,9 +331,9 @@
             }
 
             //populate the calendar with date objects
-            var startDay = daysInLastMonth - dayOfWeek + this.locale.firstDay + 1;
+            var startDay = daysInLastMonth - dayOfWeek + 1;
             if (dayOfWeek == 0)
-                startDay = daysInLastMonth - 6 + this.locale.firstDay;
+                startDay = daysInLastMonth - 6;
 
             var curDate = Date.today().set({ day: startDay, month: lastMonth, year: lastYear });
             for (var i = 0, col = 0, row = 0; i < 42; i++, col++, curDate = curDate.clone().add(1).day()) {
@@ -411,13 +357,7 @@
             html += '<th colspan="5">' + calendar[1][1].toString("MMMM yyyy") + '</th>';
             html += '<th class="next"><i class="icon-arrow-right"></i></th>';
             html += '</tr>';
-            html += '<tr>';
-
-            $.each(this.locale.daysOfWeek, function (index, dayOfWeek) {
-                html += '<th>' + dayOfWeek + '</th>';
-            });
-
-            html += '</tr>';
+            html += '<tr><th>Su</th><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th></tr>';
             html += '</thead>';
             html += '<tbody>';
 
@@ -442,13 +382,24 @@
 
     };
 
-    $.fn.daterangepicker = function (options, cb) {
-      this.each(function() {
-        var el = $(this);
-        if (!el.data('daterangepicker'))
-          el.data('daterangepicker', new DateRangePicker(el, options, cb));
-      });
-      return this;
-    };
+    DRPTemplate = '<div class="daterangepicker dropdown-menu">' +
+            '<div class="calendar left"></div>' +
+            '<div class="calendar right"></div>' +
+            '<div class="ranges">' +
+              '<div class="range_inputs">' +
+                '<div style="float: left">' +
+                  '<label for="daterangepicker_start">From</label>' +
+                  '<input class="input-mini" type="text" name="daterangepicker_start" value="" disabled="disabled" />' +
+                '</div>' +
+                '<div style="float: left; padding-left: 12px">' +
+                  '<label for="daterangepicker_end">To</label>' +
+                  '<input class="input-mini" type="text" name="daterangepicker_end" value="" disabled="disabled" />' +
+                '</div>' +
+                '<button class="btn btn-small btn-success" disabled="disabled">Apply</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+    $.fn.daterangepicker = function (options, cb) { new DateRangePicker(this, options, cb); };
 
 } (window.jQuery);

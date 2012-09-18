@@ -14,10 +14,11 @@
         //state
         this.startDate = Date.today();
         this.endDate = Date.today();
+        this.step = 86400;
         this.ranges = {};
         this.opens = 'right';
         this.cb = function () { };
-        this.format = 'MM/dd/yyyy';
+        this.format = 'dd/MM/yyyy';
 
         this.leftCalendar = {
             month: Date.today().set({ day: 1, month: this.startDate.getMonth(), year: this.startDate.getFullYear() }),
@@ -120,6 +121,8 @@
         this.updateView();
         this.updateCalendars();
         this.notify();
+
+        return this;
     };
 
     DateRangePicker.prototype = {
@@ -217,25 +220,29 @@
             }
         },
 
+        selectRange: function (label) {
+            var dates = this.ranges[label];
+
+            this.startDate = dates[0];
+            this.endDate = dates[1];
+            this.step = dates[2]; // CUSTOM
+            this.label = label; // CUSTOM
+
+            this.leftCalendar.month.set({ month: this.startDate.getMonth(), year: this.startDate.getFullYear() });
+            this.rightCalendar.month.set({ month: this.endDate.getMonth(), year: this.endDate.getFullYear() });
+            this.updateCalendars();
+
+            this.notify();
+            this.container.find('.calendar').hide();
+            this.hide();
+        },
+
         clickRange: function (e) {
             var label = e.target.innerHTML;
             if (label == "Custom Range") {
                 this.container.find('.calendar').show();
             } else {
-                var dates = this.ranges[label];
-
-                this.startDate = dates[0];
-                this.endDate = dates[1];
-                this.step = dates[2]; // CUSTOM
-                this.label = label; // CUSTOM
-
-                this.leftCalendar.month.set({ month: this.startDate.getMonth(), year: this.startDate.getFullYear() });
-                this.rightCalendar.month.set({ month: this.endDate.getMonth(), year: this.endDate.getFullYear() });
-                this.updateCalendars();
-
-                this.notify();
-                this.container.find('.calendar').hide();
-                this.hide();
+                this.selectRange(label);
             }
         },
 
@@ -400,6 +407,6 @@
             '</div>' +
           '</div>';
 
-    $.fn.daterangepicker = function (options, cb) { new DateRangePicker(this, options, cb); };
+    $.fn.daterangepicker = function (options, cb) { return new DateRangePicker(this, options, cb); };
 
 } (window.jQuery);
